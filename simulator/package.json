@@ -1,0 +1,14 @@
+{
+  "name": "iot-landslide-simulator",
+  "version": "1.0.0",
+  "description": "Virtual ESP8266 Simulator for Landslide IoT System",
+  "main": "simulate.js",
+  "type": "module",
+  "scripts": {
+    "start": "node simulate.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "mqtt": "^5.10.4"
+  }
+}

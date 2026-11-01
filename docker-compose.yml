@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  # 1. MQTT Broker (Chỉ mở cho mạng LAN và nội bộ container)
+  mosquitto:
+    build:
+      context: ./mosquitto
+      dockerfile: Dockerfile
+    container_name: landslide_mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883" # Mở cho ESP8266 trong cùng mạng Wi-Fi LAN
+    volumes:
+      - mosquitto_data:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -u iot_user -P iot_secure_pass2026 -i healthcheck || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - landslide_net
+
+  # 2. Backend Service (Express + MQTT subscriber + Analytics Engine + WS)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: landslide_backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - PORT=5000
+      - MQTT_HOST=mosquitto
+      - MQTT_PORT=1883
+      - DB_PATH=/app/data/landslide.db
+    volumes:
+      - backend_data:/app/data
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:5000/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - landslide_net
+
+  # 3. Nginx Reverse Proxy & Frontend Static Hosting (Cổng duy nhất 3000)
+  nginx:
+    build:
+      context: .
+      dockerfile: ./nginx/Dockerfile.full
+    container_name: landslide_web
+    restart: unless-stopped
+    ports:
+      - "3000:3000" # CỔNG DUY NHẤT ĐƯỢC PHƠI CHO TRÌNH DUYỆT & TUNNEL
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - landslide_net
+
+  # 4. (Tùy chọn) Cloudflare Named Tunnel nếu người dùng có domain
+  # cloudflared:
+  #   image: cloudflare/cloudflared:latest
+  #   container_name: landslide_tunnel
+  #   restart: unless-stopped
+  #   command: tunnel run
+  #   environment:
+  #     - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+  #   depends_on:
+  #     - nginx
+  #   networks:
+  #     - landslide_net
+
+volumes:
+  mosquitto_data:
+  backend_data:
+
+networks:
+  landslide_net:
+    driver: bridge

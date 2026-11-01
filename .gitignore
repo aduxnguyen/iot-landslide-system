@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+*/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment & Secret Keys (Bảo mật: Không commit .env)
+.env
+.env.local
+.env.*.local
+backend/.env
+!*.env.example
+
+# SQLite Database & Storage
+*.db
+*.db-wal
+*.db-shm
+data/
+backend/data/
+
+# Mosquitto persistent data & logs
+mosquitto/data/
+mosquitto/log/
+
+# Build output
+frontend/dist/
+dist/
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
